@@ -1,5 +1,5 @@
 /*
- * newhpsdr - an implementation of the hpsdr protocol
+ * newhpsdr - an implementation of the hpsdr protocol 1
  * Copyright (C) 2019 Sebastien Lorquet
  *
  * This program is free software: you can redistribute it and/or modify
@@ -14,7 +14,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
 #include <stdint.h>
 #include <stdio.h>
@@ -27,10 +27,12 @@
 
 #include "p1dev.h"
 
+#define DATA_PORT 1024
+
 struct p1dev_discover_sync_s {
     struct p1dev_s *list;
-    int available;
-    int index;
+               int available;
+               int index;
 };
 
 static const char *gBoardTypes[] = {
@@ -51,6 +53,13 @@ static const char *gBoardStates[] = {
         "TRANSMIT",
         "FULLDUPLEX"
 };
+
+static unsigned char p1dev_buffer[1032];
+static int p1dev_offset=8;
+static long send_sequence=-1;
+
+static void p1dev_send_buffer(struct p1dev_s *device, unsigned char *buffer, int length);
+static  int p1dev_write(struct p1dev_s *device, unsigned char ep, unsigned char *buffer, int length);
 
 const char* p1dev_describe_type(uint8_t type) {
     if (type < sizeof(gBoardTypes)) {
@@ -144,7 +153,9 @@ int p1dev_discover_async(p1dev_cb_f callback, void *context, unsigned int delay)
             dev.version = buf[9];
             dev.type = buf[10];
             dev.state = P1DEV_STATE_DISCONNECTED;
-            dev.ip = sender.sin_addr;
+            dev.data_addr.sin_addr = sender.sin_addr;
+            dev.data_addr.sin_port = htons(DATA_PORT);
+            dev.data_addr_length = sizeof(dev.data_addr);
             callback(&dev, context);
         } else if (ret == 0) {
             fprintf(stderr, "zero ret, unexpected, please contact f4grx@f4grx.net\n");
@@ -164,7 +175,6 @@ int p1dev_discover_async(p1dev_cb_f callback, void *context, unsigned int delay)
     errclose: close(sock);
     return -1;
 }
-
 
 // Internal callback used to implement the sync version of discovery
 static void p1dev_discover_sync_cb(struct p1dev_s *dev, void *context) {
@@ -205,7 +215,7 @@ int p1dev_discover(struct p1dev_s *devtable, int maxdevs, unsigned int delay) {
 
 // Initialize a protocol 1 device from an explicit IP*/
 int p1dev_fromip(struct p1dev_s *device, struct in_addr ip) {
-    device->ip = ip;
+    device->data_addr.sin_addr = ip;
     device->state = P1DEV_STATE_DISCONNECTED;
     return 0;
 }
@@ -214,7 +224,7 @@ int p1dev_fromip(struct p1dev_s *device, struct in_addr ip) {
 int p1dev_connect(struct p1dev_s *device) {
     int sock;
 
-    fprintf(stderr, "Connect to p1dev at %s\n", inet_ntoa(device->ip));
+    fprintf(stderr, "Connect to p1dev at %s\n", inet_ntoa(device->data_addr.sin_addr));
 
     if (device->state != P1DEV_STATE_DISCONNECTED) {
         fprintf(stderr, "Device is already connected!\n");
@@ -232,10 +242,9 @@ int p1dev_connect(struct p1dev_s *device) {
     return 0;
 }
 
-
 // Release connection to a protocol 1 device
 int p1dev_disconnect(struct p1dev_s *device) {
-    fprintf(stderr, "Disconnect from p1dev at %s\n", inet_ntoa(device->ip));
+    fprintf(stderr, "Disconnect from p1dev at %s\n", inet_ntoa(device->data_addr.sin_addr));
 
     if (device->state == P1DEV_STATE_DISCONNECTED) {
         fprintf(stderr, "Device is already connected!\n");
@@ -263,7 +272,8 @@ int p1dev_stop_narrow(struct p1dev_s *device) {
 }
 
 // Transmit some IQ samples
-int p1dev_send_narrow(struct p1dev_s *device, void *buffer1024) {
+int p1dev_send_narrow(struct p1dev_s *device, void *buffer, int length) {
+    p1dev_write(device, 0, buffer, length);
     return 0;
 }
 
@@ -277,4 +287,39 @@ int p1dev_start_wide(struct p1dev_s *device, void *buffer16384, p1dev_wide_cb_f 
 // Stop receiving bandscope data
 int p1dev_stop_wide(struct p1dev_s *device) {
     return 0;
+}
+
+static int p1dev_write(struct p1dev_s *device, unsigned char ep, unsigned char *buffer, int length) {
+    int i;
+
+    // copy the buffer over
+    for (i = 0; i < 512; i++) {
+        p1dev_buffer[i + p1dev_offset] = buffer[i];
+    }
+
+    if (p1dev_offset == 8) {
+        p1dev_offset = 520;
+    } else {
+        send_sequence++;
+        p1dev_buffer[0] = 0xEF;
+        p1dev_buffer[1] = 0xFE;
+        p1dev_buffer[2] = 0x01;
+        p1dev_buffer[3] = ep;
+        p1dev_buffer[4] = (send_sequence >> 24) & 0xFF;
+        p1dev_buffer[5] = (send_sequence >> 16) & 0xFF;
+        p1dev_buffer[6] = (send_sequence >> 8) & 0xFF;
+        p1dev_buffer[7] = (send_sequence) & 0xFF;
+
+        // send the buffer
+        p1dev_send_buffer(device, &p1dev_buffer[0], 1032);
+        p1dev_offset = 8;
+    }
+
+    return 0;
+}
+
+static void p1dev_send_buffer(struct p1dev_s *device, unsigned char *buffer, int length) {
+    if (sendto(device->sock, buffer, length, 0, (struct sockaddr*) &device->data_addr.sin_addr, device->data_addr_length) != length) {
+        perror("sendto socket failed for send data\n");
+    }
 }

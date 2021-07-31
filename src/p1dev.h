@@ -1,5 +1,5 @@
 /*
- * newhpsdr - an implementation of the hpsdr protocol
+ * newhpsdr - an implementation of the hpsdr protocol 1
  * Copyright (C) 2019 Sebastien Lorquet
  *
  * This program is free software: you can redistribute it and/or modify
@@ -14,7 +14,7 @@
  *
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
-*/
+ */
 
 #ifndef __P1DEV__H__
 #define __P1DEV__H__
@@ -43,18 +43,19 @@ enum {
 
 // protocol 1 device management
 struct p1dev_s {
-    struct in_addr ip;      // IP address of the board
-           uint8_t mac[6];  // MAC address of the board
-               int type;    // Device type
-           uint8_t version; // FPGA gateware version
-               int state;   // Device state: stopped, started narrow, started wide
-               int sock;    // socket handle used for communication
+               uint8_t mac[6];           // MAC address of the board
+                   int type;             // Device type
+               uint8_t version;          // FPGA gateware version
+                   int state;            // Device state: stopped, started narrow, started wide
+                   int sock;             // socket handle used for communication
+    struct sockaddr_in data_addr;        //
+                   int data_addr_length; //
 };
 
 // This callback is called by the async version of the discovery process.
-typedef void (*p1dev_cb_f)(struct p1dev_s *device, void *context);
+typedef void (*p1dev_cb_f)       (struct p1dev_s *device, void *context);
 typedef void (*p1dev_narrow_cb_f)(struct p1dev_s *device, void *context, void *buffer1024);
-typedef void (*p1dev_wide_cb_f)(struct p1dev_s *device, void *context, void *buffer16384);
+typedef void (*p1dev_wide_cb_f)  (struct p1dev_s *device, void *context, void *buffer16384);
 
 // Discover protocol 1 devices asynchronously. The callback is triggered
 // each time a device is discovered. Discovery will run for delay seconds.
@@ -85,8 +86,8 @@ int p1dev_start_narrow(struct p1dev_s *device, void *buffer1024, p1dev_narrow_cb
 // Stop receiving narrow band data
 int p1dev_stop_narrow(struct p1dev_s *device);
 
-// Transmit some IQ samples
-int p1dev_send_narrow(struct p1dev_s *device, void *buffer1024);
+// Transmit IQ samples
+int p1dev_send_narrow(struct p1dev_s *device, void *buffer, int length);
 
 // Start receiving bandscope data. Data is stored in the buffer that must be allocated by the caller.
 // The RX callback is only called when a full set of bandscope data has been received.
