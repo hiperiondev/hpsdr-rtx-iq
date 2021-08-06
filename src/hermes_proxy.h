@@ -27,6 +27,7 @@ typedef unsigned char *RawBuf_t; // Raw transmit buffer type
      int PutTxIQ(const complex float *in0, int nsamples);
 RawBuf_t GetNextTxBuf(void);
     void SendTxIQ(void);
+    void ReceiveRxIQ(unsigned char *inbuf);
 
 #endif
 

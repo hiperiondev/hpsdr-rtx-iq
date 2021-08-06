@@ -7,9 +7,10 @@
 
 #include <stdio.h>
 #include <complex.h>
+#include <math.h>
 
 #include "metis.h"
-#include "hpsdr_tx.h"
+#include "hermes_proxy.h"
 
 typedef float *IQBuf_t;  // IQ buffer type (IQ samples as floats)
 
@@ -654,4 +655,146 @@ void SendTxIQ(void) {
         TxReadCounter &= (NUMTXBUFS - 1); // and free it
      }
     return;
+}
+
+// ********** Routines to receive data from Hermes/Metis and give to Gnuradio ****************
+// called by metis Rx thread.
+void ReceiveRxIQ(unsigned char *inbuf) {
+
+    // look for lost receive packets based on skips in the HPSDR ethernet header
+    // sequence number.
+
+//PrintRawBuf(inbuf);   // include Ethernet header
+
+    unsigned int SequenceNum = (unsigned char) (inbuf[4]) << 24;
+    SequenceNum += (unsigned char) (inbuf[5]) << 16;
+    SequenceNum += (unsigned char) (inbuf[6]) << 8;
+    SequenceNum += (unsigned char) (inbuf[7]);
+
+    if (SequenceNum > CurrentEthSeqNum + 1) {
+        LostEthernetRx += (SequenceNum - CurrentEthSeqNum);
+        CurrentEthSeqNum = SequenceNum;
+    } else {
+        if (SequenceNum == CurrentEthSeqNum + 1)
+            CurrentEthSeqNum++;
+    }
+
+    // Metis Rx thread gives us collection of samples including the Ethernet header
+    // plus 2 x HPSDR USB frames.
+
+    // TODO - Handle Mic audio from Hermes.
+
+    // For 1 Rx, the frame comes in with I2 I1 I0 Q2 Q1 Q0 M1 M0 repeating
+    // starting at location 8 through 511. At total of (512-8)/8 = 63 complex pairs.
+    // I2 I1 I0 is 24-bit 2's complement format.
+    // There are two of the USB HPSDR frames in the received ethernet buffer.
+    // A buffer of 126 complex pairs is about
+    //  0.3 milliseconds at 384,000 sample rate
+    //  0.6 milliseconds at 192,000 sample rate
+    //  2.4 milliseconds at 48,000 sample rate
+    //
+    //
+    // We always allocate one output buffer to unpack every received ethernet frame.
+    // Each input Ethernet frame contains a different number of I + Q samples as 2's
+    // complement depending on the number of receivers.
+    //
+    //    RxWriteCounter - the current Rx buffer we are writing to
+    //    RxWriteFill    - #floats we have written to the current Rx buffer (0..255)
+    //    RxReadCounter  - the Rx buffer that gnuradio can read
+    //
+
+    inbuf += 8;         // skip past Ethernet header
+
+    //IQBuf_t outbuf;     // RxWrite output buffer selector
+
+    TotalRxBufCount++;
+
+    ScheduleTxFrame(TotalRxBufCount); // Schedule a Tx ethernet frame to Hermes if ready.
+
+    // Need to check for both 1st and 2nd USB frames for the status registers.
+    // Some status come in only in the first, and some only in the second.
+
+    // check for proper frame sync
+
+    for (int USBFrameOffset = 0; USBFrameOffset <= 512; USBFrameOffset += 512) {
+
+        unsigned char s0 = inbuf[0 + USBFrameOffset]; // sync register 0
+        unsigned char s1 = inbuf[1 + USBFrameOffset]; // sync register 0
+        unsigned char s2 = inbuf[2 + USBFrameOffset]; // sync register 0
+        unsigned char c0 = inbuf[3 + USBFrameOffset]; // control register 0
+        unsigned char c1 = inbuf[4 + USBFrameOffset]; // control register 1
+        unsigned char c2 = inbuf[5 + USBFrameOffset]; // control register 2
+        unsigned char c3 = inbuf[6 + USBFrameOffset]; // control register 3
+        unsigned char c4 = inbuf[7 + USBFrameOffset]; // control register 4
+
+        if (s0 == 0x7f && s1 == 0x7f && s2 == 0x7f) {
+            if ((c0 & 0xf8) == 0x00) // Overflow and Version
+                    {
+//            fprintf(stderr, "Reg:0x00   c0:0x%x c1:0x%x c2:0x%x c3:0x%u c4:0x%x\n", c0, c1, c2, c3, c4);
+
+                if (c1 & 0x01)
+                    ADCoverload = true;
+                else
+                    ADCoverload = false;
+
+                HermesVersion = c4;
+            }
+
+            if ((c0 & 0xf8) == 0x08)  //AIN5 and AIN1
+                    {
+//            fprintf(stderr, "Reg:0x08   c0:0x%x c1:0x%x c2:0x%x c3:0x%u c4:0x%x\n", c0, c1, c2, c3, c4);
+                AIN5 = (unsigned int) c1 * 256 + (unsigned int) c2;
+                AIN1 = (unsigned int) c3 * 256 + (unsigned int) c4;
+            }
+
+            if ((c0 & 0xf8) == 0x10)  //AIN2 and AIN3
+                    {
+//            fprintf(stderr, "Reg:0x10   c0:0x%x c1:0x%x c2:0x%x c3:0x%u c4:0x%x\n", c0, c1, c2, c3, c4);
+                AIN2 = (unsigned int) c1 * 256 + (unsigned int) c2;
+                AIN3 = (unsigned int) c3 * 256 + (unsigned int) c4;
+
+            }
+
+            if ((c0 & 0xf8) == 0x18)  //AIN4 and AIN6
+                    {
+//            fprintf(stderr, "Reg:0x18   c0:0x%x c1:0x%x c2:0x%x c3:0x%u c4:0x%x\n", c0, c1, c2, c3, c4);
+                AIN4 = (unsigned int) c1 * 256 + (unsigned int) c2;
+                AIN6 = (unsigned int) c3 * 256 + (unsigned int) c4;
+            }
+
+            if (Verbose) {
+                SlowCount++;
+                if ((SlowCount & 0x1ff) == 0x1ff) {
+                    float FwdPwr = (float) AIN1 * (float) AIN1 / 145000.0;
+                    float RevPwr = (float) AIN2 * (float) AIN2 / 145000.0;
+
+                    // calculate SWR
+                    double SWR = 0.0;
+
+                    SWR = (1 + sqrt(RevPwr / FwdPwr)) / (1 - sqrt(RevPwr / FwdPwr));
+                    if (false == isnormal(SWR)) {
+                        SWR = 99.9;
+                    }
+
+                    fprintf(stderr, "AlexFwdPwr = %4.1f  AlexRevPwr = %4.1f   ", FwdPwr, RevPwr);
+                    // report SWR if forward power is non-zero
+                    if ((int) FwdPwr != 0) {
+                        fprintf(stderr, "SWR = %.2f:1   ", SWR);
+                    }
+                    fprintf(stderr, "ADCOver: %u  HermesVersion: %d (dec)  %X (hex)\n", ADCoverload, HermesVersion, HermesVersion);
+                    //fprintf(stderr, "AIN1:%u  AIN2:%u  AIN3:%u  AIN4:%u  AIN5:%u  AIN6:%u\n", AIN1, AIN2, AIN3, AIN4, AIN5, AIN6);
+                }
+            }
+        } //endif sync is valid
+
+        else {
+            CorruptRxCount++;
+//          fprintf(stderr, "HermesProxy: EP6 received from Hermes failed sync header check.\n");
+//          int delta = inbuf - inbufptr;
+//          fprintf(stderr, "USBFrameOffset: %i  inbufptr: %p  delta: %i \n", USBFrameOffset, inbufptr, delta);
+//          PrintRawBuf(inbufptr);  // include Ethernet header
+            return;// error return
+        }
+
+    }   // end for two USB frames
 }
