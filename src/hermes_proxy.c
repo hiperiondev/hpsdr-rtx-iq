@@ -1,8 +1,27 @@
 /*
- * hpsdr_tx.c
+ * Copyright 2021 Emiliano Gonzalez LU3VEA (lu3vea @ gmail . com))
+ * * Project Site: https://github.com/hiperiondev/hpsdr-rpitx *
  *
- *  Created on: 3 ago. 2021
- *      Author: egonzalez
+ * This is based on other projects:
+ *    https://github.com/Tom-McDermott/gr-hpsdr/
+ *
+ *    please contact their authors for more information.
+ *
+ * This is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3, or (at your option)
+ * any later version.
+ *
+ * This software is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this software; see the file COPYING.  If not, write to
+ * the Free Software Foundation, Inc., 51 Franklin Street,
+ * Boston, MA 02110-1301, USA.
+ *
  */
 
 #include <stdio.h>
@@ -260,18 +279,16 @@ void ScheduleTxFrame(unsigned long RxBufCount) {
     default: // 3 or more receivers
         // Compute a selector to decide which scheduler vector to use
         int FrameIndex = 0;
-        int RxNumIndex = NumReceivers - 3;       //   3,  4,  5,  6,  7  -->  0, 1, 2, 3, 4
-
-        int SpeedIndex = (RxSampleRate) / 48000; // 48k, 96k, 192k, 384k -->  1, 2, 4, 8
-        SpeedIndex = SpeedIndex >> 1;            // 48k, 96k, 192k, 384k -->  0, 1, 2, 4
+        int RxNumIndex = NumReceivers - 3;          //   3,  4,  5,  6,  7  -->  0, 1, 2, 3, 4
+        int SpeedIndex = (RxSampleRate) / 48000;    // 48k, 96k, 192k, 384k -->  1, 2, 4, 8
+        SpeedIndex = SpeedIndex >> 1;               // 48k, 96k, 192k, 384k -->  0, 1, 2, 4
         if (SpeedIndex == 4)
-            SpeedIndex = 3;                      // 48k, 96k, 192k, 384k -->  0, 1, 2, 3
-
+            SpeedIndex = 3;                         // 48k, 96k, 192k, 384k -->  0, 1, 2, 3
         int selector = RxNumIndex * 4 + SpeedIndex; //  0 .. 19
 
         // Compute the frame number within a vector
         if (RxSampleRate == 48000)
-            FrameIndex = RxBufCount % 63; // FrameIndex is 0..62
+            FrameIndex = RxBufCount % 63;  // FrameIndex is 0..62
         if (RxSampleRate == 96000)
             FrameIndex = RxBufCount % 126; // FrameIndex is 0..125
         if (RxSampleRate == 192000)
@@ -337,7 +354,7 @@ void BuildControlRegs(unsigned RegNum, RawBuf_t outbuf) {
 
     outbuf[0] = outbuf[1] = outbuf[2] = 0x7f; // HPSDR USB sync
 
-    outbuf[3] = RegNum; // C0 Control Register (Bank Sel + PTT)
+    outbuf[3] = RegNum;    // C0 Control Register (Bank Sel + PTT)
     if (PTTMode == PTTOn)
         outbuf[3] |= 0x01; // set MOX bit
 
@@ -715,7 +732,6 @@ void ReceiveRxIQ(unsigned char *inbuf) {
     // Some status come in only in the first, and some only in the second.
 
     // check for proper frame sync
-
     for (int USBFrameOffset = 0; USBFrameOffset <= 512; USBFrameOffset += 512) {
 
         unsigned char s0 = inbuf[0 + USBFrameOffset]; // sync register 0
@@ -728,9 +744,9 @@ void ReceiveRxIQ(unsigned char *inbuf) {
         unsigned char c4 = inbuf[7 + USBFrameOffset]; // control register 4
 
         if (s0 == 0x7f && s1 == 0x7f && s2 == 0x7f) {
-            if ((c0 & 0xf8) == 0x00) // Overflow and Version
-                    {
-//            fprintf(stderr, "Reg:0x00   c0:0x%x c1:0x%x c2:0x%x c3:0x%u c4:0x%x\n", c0, c1, c2, c3, c4);
+            // Overflow and Version
+            if ((c0 & 0xf8) == 0x00) {
+                // fprintf(stderr, "Reg:0x00   c0:0x%x c1:0x%x c2:0x%x c3:0x%u c4:0x%x\n", c0, c1, c2, c3, c4);
 
                 if (c1 & 0x01)
                     ADCoverload = true;
@@ -785,9 +801,8 @@ void ReceiveRxIQ(unsigned char *inbuf) {
                     // fprintf(stderr, "AIN1:%u  AIN2:%u  AIN3:%u  AIN4:%u  AIN5:%u  AIN6:%u\n", AIN1, AIN2, AIN3, AIN4, AIN5, AIN6);
                 }
             }
-        } // endif sync is valid
-
-        else {
+        } else {
+            // endif sync is valid
             CorruptRxCount++;
             // fprintf(stderr, "HermesProxy: EP6 received from Hermes failed sync header check.\n");
             // int delta = inbuf - inbufptr;

@@ -1,47 +1,28 @@
-/* -*-  C++  -*-  */
-/* metis.cc */
-
-/**
- * @file metis.c
- * @brief Metis protocol implementation
- * @author John Melton, G0ORX/N6LYT
- * @version 0.1
- * @date 2009-10-13
- */
-
-/* Copyright (C)
- * 2009 - John Melton, G0ORX/N6LYT
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
+/*
+ * Copyright 2021 Emiliano Gonzalez LU3VEA (lu3vea @ gmail . com))
+ * * Project Site: https://github.com/hiperiondev/hpsdr-rpitx *
  *
- * This program is distributed in the hope that it will be useful,
+ * This is based on other projects:
+ *    https://github.com/Tom-McDermott/gr-hpsdr/
+ *
+ *    please contact their authors for more information.
+ *
+ * This is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3, or (at your option)
+ * any later version.
+ *
+ * This software is distributed in the hope that it will be useful,
  * but WITHOUT ANY WARRANTY; without even the implied warranty of
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+ * along with this software; see the file COPYING.  If not, write to
+ * the Free Software Foundation, Inc., 51 Franklin Street,
+ * Boston, MA 02110-1301, USA.
  *
  */
-
-// Modifications only are Copyright 2012 - 2015, Tom McDermott, N5EG
-// and remain under GNU General Public License, as above.
-//
-// Version 0.1 - November 9, 2012
-//
-// Modifications to metis.c  to produce metis.cc, to work with
-// Gnuradio, and the Hermes module.
-//
-//
-// Version 0.2 - March 22, 2015
-//
-// Add EP6 received wideband frame handler to receive data from
-// Hermes hardware and send to HermesProxyW. Test that appropriate proxies
-// exist (pointer is not NULL).
-//
 
 #include <unistd.h>
 #include <stdlib.h>
