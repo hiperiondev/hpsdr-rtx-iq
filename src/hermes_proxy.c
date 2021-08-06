@@ -657,14 +657,14 @@ void SendTxIQ(void) {
     return;
 }
 
-// ********** Routines to receive data from Hermes/Metis and give to Gnuradio ****************
+// ********** Routines to receive data from Hermes/Metis ****************
 // called by metis Rx thread.
 void ReceiveRxIQ(unsigned char *inbuf) {
 
     // look for lost receive packets based on skips in the HPSDR ethernet header
     // sequence number.
 
-//PrintRawBuf(inbuf);   // include Ethernet header
+    //PrintRawBuf(inbuf);   // include Ethernet header
 
     unsigned int SequenceNum = (unsigned char) (inbuf[4]) << 24;
     SequenceNum += (unsigned char) (inbuf[5]) << 16;
@@ -742,14 +742,14 @@ void ReceiveRxIQ(unsigned char *inbuf) {
 
             if ((c0 & 0xf8) == 0x08)  //AIN5 and AIN1
                     {
-//            fprintf(stderr, "Reg:0x08   c0:0x%x c1:0x%x c2:0x%x c3:0x%u c4:0x%x\n", c0, c1, c2, c3, c4);
+                // fprintf(stderr, "Reg:0x08   c0:0x%x c1:0x%x c2:0x%x c3:0x%u c4:0x%x\n", c0, c1, c2, c3, c4);
                 AIN5 = (unsigned int) c1 * 256 + (unsigned int) c2;
                 AIN1 = (unsigned int) c3 * 256 + (unsigned int) c4;
             }
 
             if ((c0 & 0xf8) == 0x10)  //AIN2 and AIN3
                     {
-//            fprintf(stderr, "Reg:0x10   c0:0x%x c1:0x%x c2:0x%x c3:0x%u c4:0x%x\n", c0, c1, c2, c3, c4);
+                // fprintf(stderr, "Reg:0x10   c0:0x%x c1:0x%x c2:0x%x c3:0x%u c4:0x%x\n", c0, c1, c2, c3, c4);
                 AIN2 = (unsigned int) c1 * 256 + (unsigned int) c2;
                 AIN3 = (unsigned int) c3 * 256 + (unsigned int) c4;
 
@@ -757,7 +757,7 @@ void ReceiveRxIQ(unsigned char *inbuf) {
 
             if ((c0 & 0xf8) == 0x18)  //AIN4 and AIN6
                     {
-//            fprintf(stderr, "Reg:0x18   c0:0x%x c1:0x%x c2:0x%x c3:0x%u c4:0x%x\n", c0, c1, c2, c3, c4);
+                // fprintf(stderr, "Reg:0x18   c0:0x%x c1:0x%x c2:0x%x c3:0x%u c4:0x%x\n", c0, c1, c2, c3, c4);
                 AIN4 = (unsigned int) c1 * 256 + (unsigned int) c2;
                 AIN6 = (unsigned int) c3 * 256 + (unsigned int) c4;
             }
@@ -782,17 +782,17 @@ void ReceiveRxIQ(unsigned char *inbuf) {
                         fprintf(stderr, "SWR = %.2f:1   ", SWR);
                     }
                     fprintf(stderr, "ADCOver: %u  HermesVersion: %d (dec)  %X (hex)\n", ADCoverload, HermesVersion, HermesVersion);
-                    //fprintf(stderr, "AIN1:%u  AIN2:%u  AIN3:%u  AIN4:%u  AIN5:%u  AIN6:%u\n", AIN1, AIN2, AIN3, AIN4, AIN5, AIN6);
+                    // fprintf(stderr, "AIN1:%u  AIN2:%u  AIN3:%u  AIN4:%u  AIN5:%u  AIN6:%u\n", AIN1, AIN2, AIN3, AIN4, AIN5, AIN6);
                 }
             }
-        } //endif sync is valid
+        } // endif sync is valid
 
         else {
             CorruptRxCount++;
-//          fprintf(stderr, "HermesProxy: EP6 received from Hermes failed sync header check.\n");
-//          int delta = inbuf - inbufptr;
-//          fprintf(stderr, "USBFrameOffset: %i  inbufptr: %p  delta: %i \n", USBFrameOffset, inbufptr, delta);
-//          PrintRawBuf(inbufptr);  // include Ethernet header
+            // fprintf(stderr, "HermesProxy: EP6 received from Hermes failed sync header check.\n");
+            // int delta = inbuf - inbufptr;
+            // fprintf(stderr, "USBFrameOffset: %i  inbufptr: %p  delta: %i \n", USBFrameOffset, inbufptr, delta);
+            // PrintRawBuf(inbufptr);  // include Ethernet header
             return;// error return
         }
 
