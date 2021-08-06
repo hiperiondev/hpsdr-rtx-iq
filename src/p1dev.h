@@ -87,7 +87,7 @@ int p1dev_start_narrow(struct p1dev_s *device, void *buffer1024, p1dev_narrow_cb
 int p1dev_stop_narrow(struct p1dev_s *device);
 
 // Transmit IQ samples
-int p1dev_send_narrow(struct p1dev_s *device, void *buffer, int length);
+int p1dev_send_narrow(struct p1dev_s *device, unsigned char *buffer, int length);
 
 // Start receiving bandscope data. Data is stored in the buffer that must be allocated by the caller.
 // The RX callback is only called when a full set of bandscope data has been received.

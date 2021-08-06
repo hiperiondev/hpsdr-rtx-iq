@@ -272,8 +272,8 @@ int p1dev_stop_narrow(struct p1dev_s *device) {
 }
 
 // Transmit some IQ samples
-int p1dev_send_narrow(struct p1dev_s *device, void *buffer, int length) {
-    p1dev_write(device, 0, buffer, length);
+int p1dev_send_narrow(struct p1dev_s *device, unsigned char *iqbuffer, int length) {
+    p1dev_write(device, 0x02, iqbuffer, length);
     return 0;
 }
 
