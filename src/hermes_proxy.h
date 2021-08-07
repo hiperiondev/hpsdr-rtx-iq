@@ -42,7 +42,9 @@
 #define MAXRECEIVERS     8 // Maximum number of receivers defined by protocol specification
 
 typedef unsigned char *RawBuf_t; // Raw transmit buffer type
-
+    void HermesProxy_init(int RxFreq0, int RxFreq1, int RxFreq2, int RxFreq3, int RxFreq4, int RxFreq5, int RxFreq6, int RxFreq7, int TxFreq, int RxPre,
+            int PTTModeSel, int PTTTxMute, int PTTRxMute, unsigned char TxDr, int RxSmp, const char *Intfc, const char *ClkS, int AlexRA, int AlexTA, int AlexHPF,
+            int AlexLPF, int Verb, int NumRx, const char *MACAddr);
     void ScheduleTxFrame(unsigned long RxBufCount);
     void UpdateHermes(void);
     void BuildControlRegs(unsigned RegNum, RawBuf_t outbuf);

@@ -48,5 +48,9 @@ int main(int argc, char **argv) {
     sleep(5);
     printf("found metis: %s %s\n", metis_ip_address(1), metis_mac_address(1));
 
+    HermesProxy_init(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "enp3s0", "enp3s0", 0, 0, 0, 0, 0, 0, "AA:BB:CC:DD:EE:FF");
+
+    sleep(600);
+
     return 0;
 }

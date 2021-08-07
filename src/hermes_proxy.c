@@ -25,8 +25,10 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <complex.h>
 #include <math.h>
+#include <string.h>
 
 #include "metis.h"
 #include "hermes_proxy.h"
@@ -37,14 +39,13 @@ enum {
     PTTOff, // PTT disabled
     PTTVox, // PTT vox mode (examines TxFrame to decide whether to Tx)
     PTTOn
-};
-// PTT force Tx on
+}; // PTT force Tx on
 
- IQBuf_t RxIQBuf[NUMRXIQBUFS];  // ReceiveIQ buffers
+IQBuf_t RxIQBuf[NUMRXIQBUFS];   // ReceiveIQ buffers
 unsigned RxWriteCounter;        // Which Rx buffer to write to
 unsigned RxReadCounter;         // Which Rx buffer to read from
 unsigned RxWriteFill;           // Fill level of the RxWrite buffer
-    bool TxHoldOff;             // Transmit buffer holdoff flag
+bool TxHoldOff;                 // Transmit buffer holdoff flag
 
 RawBuf_t TxBuf[NUMTXBUFS];      // Transmit buffers
 unsigned TxWriteCounter;        // Which Tx buffer to write to
@@ -60,18 +61,18 @@ unsigned long CorruptRxCount;   //
 unsigned long LostEthernetRx;   //
 unsigned long CurrentEthSeqNum; // Diagnostic
 
-unsigned Receive0Frequency;     // 1st rcvr. Corresponds to out0 in gnuradio
-unsigned Receive1Frequency;     // 2nd rcvr. Corresponds to out1 in gnuradio
-unsigned Receive2Frequency;     // 3rd rcvr. Corresponds to out2 in gnuradio
-unsigned Receive3Frequency;     // 4th rcvr. Corresponds to out3 in gnuradio
-unsigned Receive4Frequency;     // 5th rcvr. Corresponds to out4 in gnuradio
-unsigned Receive5Frequency;     // 6th rcvr. Corresponds to out5 in gnuradio
-unsigned Receive6Frequency;     // 7th rcvr. Corresponds to out6 in gnuradio
-unsigned Receive7Frequency;     // 8th rcvr. Corresponds to out7 in gnuradio
+unsigned Receive0Frequency;     // 1st rcvr
+unsigned Receive1Frequency;     // 2nd rcvr
+unsigned Receive2Frequency;     // 3rd rcvr
+unsigned Receive3Frequency;     // 4th rcvr
+unsigned Receive4Frequency;     // 5th rcvr
+unsigned Receive5Frequency;     // 6th rcvr
+unsigned Receive6Frequency;     // 7th rcvr
+unsigned Receive7Frequency;     // 8th rcvr
 
 unsigned TransmitFrequency;
-     int NumReceivers;
-     int RxSampleRate;
+int NumReceivers;
+int RxSampleRate;
 
 unsigned char TxDrive;
 unsigned char RxAtten;          // not yet used (requires Hermes firmware V2.0)
@@ -112,36 +113,149 @@ unsigned int USBRowCount[MAXRECEIVERS]; // Rows (samples per receiver) for one U
 //   evenly while fitting in the exact number of events.
 
 int schedulevector[20][27] = {
-    //  Three receivers - 25 Tx queue events per set of 63, 126, 252, 504  received frames
-    { 25, 0,  3,  5,  8, 10,  13,  15,  18,  20,  23,  25,  28,  30,  33,  35,  38,  40,  43,  45,  48,  50,  53,  55,  58,  60      }, // 25 frames per 63
-    { 26, 1,  5, 10, 15, 20,  25,  30,  35,  40,  45,  50,  55,  59,  64,  69,  74,  79,  84,  89,  94,  98, 103, 108, 113, 118, 122 }, // 25 frames per 126
-    { 26, 2, 10, 20, 30, 40,  50,  60,  70,  80,  90, 100, 110, 118, 128, 138, 148, 158, 168, 178, 188, 196, 206, 216, 226, 236, 244 }, // 25 frames per 252
-    { 26, 4, 20, 40, 60, 80, 100, 120, 140, 160, 180, 200, 220, 236, 256, 276, 296, 316, 336, 356, 376, 392, 412, 432, 452, 472, 488 }, // 25 frames per 504
+//  Three receivers - 25 Tx queue events per set of 63, 126, 252, 504  received frames
+        { 25, 0,  3,  5,  8, 10,  13,  15,  18,  20,  23,  25,  28,  30,  33,  35,  38,  40,  43,  45,  48,  50,  53,  55,  58,  60      }, // 25 frames per 63
+        { 26, 1,  5, 10, 15, 20,  25,  30,  35,  40,  45,  50,  55,  59,  64,  69,  74,  79,  84,  89,  94,  98, 103, 108, 113, 118, 122 }, // 25 frames per 126
+        { 26, 2, 10, 20, 30, 40,  50,  60,  70,  80,  90, 100, 110, 118, 128, 138, 148, 158, 168, 178, 188, 196, 206, 216, 226, 236, 244 }, // 25 frames per 252
+        { 26, 4, 20, 40, 60, 80, 100, 120, 140, 160, 180, 200, 220, 236, 256, 276, 296, 316, 336, 356, 376, 392, 412, 432, 452, 472, 488 }, // 25 frames per 504
 
-    //  Four receivers - 19 Tx queue events per set of 63, 126, 252, 504  received frames
-    { 19,  3,  6, 10,  13,  16,  20,  23,  26,  30,  33,  36,  40,  43,  46,  50,  53,  56,  59,  62 }, // 19 frames per 63
-    { 19,  6, 12, 20,  26,  32,  40,  46,  52,  60,  66,  72,  80,  86,  92, 100, 106, 112, 118, 124 }, // 19 frames per 126
-    { 19, 12, 24, 40,  52,  64,  80,  92, 104, 120, 132, 144, 160, 172, 184, 200, 212, 224, 236, 248 }, // 19 frames per 252
-    { 19, 24, 48, 80, 104, 128, 160, 184, 208, 240, 264, 288, 320, 344, 368, 400, 424, 448, 472, 496 }, // 19 frames per 504
+        //  Four receivers - 19 Tx queue events per set of 63, 126, 252, 504  received frames
+        { 19,  3,  6, 10,  13,  16,  20,  23,  26,  30,  33,  36,  40,  43,  46,  50,  53,  56,  59,  62 }, // 19 frames per 63
+        { 19,  6, 12, 20,  26,  32,  40,  46,  52,  60,  66,  72,  80,  86,  92, 100, 106, 112, 118, 124 }, // 19 frames per 126
+        { 19, 12, 24, 40,  52,  64,  80,  92, 104, 120, 132, 144, 160, 172, 184, 200, 212, 224, 236, 248 }, // 19 frames per 252
+        { 19, 24, 48, 80, 104, 128, 160, 184, 208, 240, 264, 288, 320, 344, 368, 400, 424, 448, 472, 496 }, // 19 frames per 504
 
-    //  Five receivers - 15 Tx queue events per set of 63, 126, 252, 504  received frames
-    { 15,  4,  8, 12,  16,  21,  25,  29,  33,  37,  42,  46,  50,  54,  58,  62 }, // 15 frames per 63
-    { 15,  8, 16, 24,  32,  42,  50,  58,  66,  74,  84,  92, 100, 108, 116, 124 }, // 15 frames per 126
-    { 15, 16, 32, 48,  64,  84, 100, 116, 132, 148, 168, 184, 200, 216, 232, 248 }, // 15 frames per 252
-    { 15, 32, 64, 96, 128, 168, 200, 232, 264, 296, 336, 368, 400, 432, 464, 496 }, // 15 frames per 504
+        //  Five receivers - 15 Tx queue events per set of 63, 126, 252, 504  received frames
+        { 15,  4,  8, 12,  16,  21,  25,  29,  33,  37,  42,  46,  50,  54,  58,  62 }, // 15 frames per 63
+        { 15,  8, 16, 24,  32,  42,  50,  58,  66,  74,  84,  92, 100, 108, 116, 124 }, // 15 frames per 126
+        { 15, 16, 32, 48,  64,  84, 100, 116, 132, 148, 168, 184, 200, 216, 232, 248 }, // 15 frames per 252
+        { 15, 32, 64, 96, 128, 168, 200, 232, 264, 296, 336, 368, 400, 432, 464, 496 }, // 15 frames per 504
 
-    //  Six receivers - 13 Tx queue events per set of 63, 126, 252, 504  received frames
-    { 13,  5, 10,  15,  20,  24,  29,  34,  39,  44,  48,  53,  58,  62 }, // 13 frames per 63
-    { 13, 10, 20,  30,  40,  48,  58,  68,  78,  88,  96, 106, 116, 124 }, // 13 frames per 126
-    { 13, 20, 40,  60,  80,  96, 116, 136, 156, 176, 192, 212, 232, 248 }, // 13 frames per 252
-    { 13, 40, 80, 120, 160, 192, 232, 272, 312, 352, 384, 424, 464, 496 }, // 13 frames per 504
+        //  Six receivers - 13 Tx queue events per set of 63, 126, 252, 504  received frames
+        { 13,  5, 10,  15,  20,  24,  29,  34,  39,  44,  48,  53,  58,  62 }, // 13 frames per 63
+        { 13, 10, 20,  30,  40,  48,  58,  68,  78,  88,  96, 106, 116, 124 }, // 13 frames per 126
+        { 13, 20, 40,  60,  80,  96, 116, 136, 156, 176, 192, 212, 232, 248 }, // 13 frames per 252
+        { 13, 40, 80, 120, 160, 192, 232, 272, 312, 352, 384, 424, 464, 496 }, // 13 frames per 504
 
-    //  Seven receivers - 11 Tx queue events per set of 63, 126, 252, 504  received frames
-    {  6, 12,  17,  23,  29,  34,  40,  45,  51 , 57,  62 }, // 11 frames per 63
-    { 12, 24,  34,  46,  58,  68,  80,  90, 102, 114, 124 }, // 11 frames per 126
-    { 24, 48,  68,  92, 116, 136, 160, 180, 204, 228, 248 }, // 11 frames per 252
-    { 48, 96, 136, 184, 232, 272, 320, 360, 408, 456, 496 }, // 11 frames per 504
+        //  Seven receivers - 11 Tx queue events per set of 63, 126, 252, 504  received frames
+        { 11,  6, 12,  17,  23,  29,  34,  40,  45,  51,  57,  62 }, // 11 frames per 63
+        { 11, 12, 24,  34,  46,  58,  68,  80,  90, 102, 114, 124 }, // 11 frames per 126
+        { 11, 24, 48,  68,  92, 116, 136, 160, 180, 204, 228, 248 }, // 11 frames per 252
+        { 11, 48, 96, 136, 184, 232, 272, 320, 360, 408, 456, 496 }, // 11 frames per 504
 };
+
+void HermesProxy_init(int RxFreq0, int RxFreq1, int RxFreq2, int RxFreq3, int RxFreq4, int RxFreq5, int RxFreq6, int RxFreq7, int TxFreq, int RxPre,
+        int PTTModeSel, int PTTTxMute, int PTTRxMute, unsigned char TxDr, int RxSmp, const char *Intfc, const char *ClkS, int AlexRA, int AlexTA, int AlexHPF,
+        int AlexLPF, int Verb, int NumRx, const char *MACAddr) {
+    RxSampleRate = RxSmp;
+    strcpy(interface, Intfc); // Ethernet interface to use (defaults to eth0)
+    NumReceivers = NumRx;
+
+    unsigned int cs; // Convert ClockSource strings to unsigned, then intitalize
+    sscanf(ClkS, "%x", &cs);
+    ClockSource = (cs & 0xFC);
+
+    // Initialize the Alex control registers.
+    AlexRxAnt = AlexRA;  // Select Alex Receive Antenna or from T/R relay
+    AlexTxAnt = AlexTA;  // Select Alex Tx Antenna
+    AlexRxHPF = AlexHPF; // Select Alex Receive High Pass Filter
+    AlexTxLPF = AlexLPF; // Select Alex Transmit Low Pass Filter
+
+    Verbose = Verb;      // Turn Verbose mode on/off
+
+    for (int i = 0; i < 18; i++)
+        mactarget[i] = MACAddr[i]; // Copy the requested MAC target address
+
+    Receive0Frequency = (unsigned) RxFreq0; //
+    Receive1Frequency = (unsigned) RxFreq1; //
+    Receive2Frequency = (unsigned) RxFreq2; //
+    Receive3Frequency = (unsigned) RxFreq3; //
+    Receive4Frequency = (unsigned) RxFreq4; //
+    Receive5Frequency = (unsigned) RxFreq5; //
+    Receive6Frequency = (unsigned) RxFreq6; //
+    Receive7Frequency = (unsigned) RxFreq7; //
+
+    TransmitFrequency = (unsigned) TxFreq;  // initialize frequencies
+    TxDrive = TxDr;                         // default to (almost) off
+    PTTMode = PTTModeSel;                   //
+    RxPreamp = (bool) RxPre;                //
+    PTTOffMutesTx = (bool) PTTTxMute;       // PTT Off mutes the transmitter
+    PTTOnMutesRx = (bool) PTTRxMute;        // PTT On mutes receiver
+
+    ADCdither = false;    //
+    ADCrandom = false;    //
+    RxAtten = 0;          // Hermes V2.0
+    Duplex = true;        // Allows TxF to program separately from RxF
+
+    TxStop = false;
+
+    RxWriteCounter = 0;   //
+    RxReadCounter = 0;    // These control the Rx buffers
+    RxWriteFill = 0;      //
+
+    TxWriteCounter = 0;   //
+    TxReadCounter = 0;    // These control the Tx buffers to Hermes
+    TxControlCycler = 0;  //
+    TxFrameIdleCount = 0; //
+
+    LostRxBufCount = 0;   //
+    TotalRxBufCount = 0;  //
+    LostTxBufCount = 0;   //
+    TotalTxBufCount = 0;  // diagnostics
+    CorruptRxCount = 0;   //
+    LostEthernetRx = 0;   //
+    CurrentEthSeqNum = 0; //
+
+    TxHoldOff = 0;        // initialize transmit hold off counter
+
+    // allocate the receiver buffers
+    int i;
+    for (i = 0; i < NUMRXIQBUFS; i++)
+        RxIQBuf[i] = malloc(sizeof(float[RXBUFSIZE]));
+
+    // allocate the transmit buffers
+    for (i = 0; i < NUMTXBUFS; i++)
+        TxBuf[i] = malloc(sizeof(unsigned char[TXBUFSIZE]));
+
+    metis_discover((const char*) interface);
+
+    USBRowCount[0] = 63;  // Number of Rows of samples per Rx Input
+    USBRowCount[1] = 36;  // USB frame based on number of receivers 1..8
+    USBRowCount[2] = 25;
+    USBRowCount[3] = 19;
+    USBRowCount[4] = 15;
+    USBRowCount[5] = 13;
+    USBRowCount[6] = 11;
+    USBRowCount[7] = 10;  // Eight receivers
+
+    // If there is no specified MAC address (i.e. wildcard, or anything less than 17
+    // characters, then just grab the first Hermes/Metis that
+    // responds to discovery. If there is a specific MAC address specified, then wait
+    // until it appears in the Metis cards table, and set the metis table index to match.
+    // The string is HH:HH:HH:HH:HH:HH\0 formated, where HH is a 2-digital Hexidecimal number
+    // uppercase, example:    04:7F:3D:0F:28:5A
+    metis_entry = 0;
+
+    // Not a fully-qualified MAC address, default to first MAC found
+    if (strlen(mactarget) != 17) {
+        // wait until Hermes responds with first discovered MAC
+        while (metis_found() == 0);
+    } else { // Search the table for the entry matching requested MAC address
+        bool found = false;
+        while (!found) // Search for MAC address in the metis_table until the cows come home
+            for (int i = 0; i < metis_found(); i++) {
+                if (strcmp(mactarget, metis_mac_address(i)) == 0) // Exact match found
+                        {
+                    metis_entry = i; // Select entry in metis_table
+                    found = true;
+                    break;
+                }
+            }
+    }
+
+    metis_receive_stream_control(RxStream_Off, metis_entry); // turn off Hermes -> PC streams
+    UpdateHermes(); // send specific control registers and initialize 1st Tx buffer before allowing scheduler to Start
+}
 
 // The Hermes hardware does not have any method to indicate when it wants a frame,
 // nor any back pressure mechanism. We derive the Tx timing by counting the Rx frames
@@ -453,9 +567,9 @@ void BuildControlRegs(unsigned RegNum, RawBuf_t outbuf) {
         outbuf[7] = ((unsigned char) (Receive6Frequency)) & 0xff;       // c4 RxFreq LSB
         break;
 
-    // Note:  While Ver 1.58 of the HPSDR USB protocol doucment specifies up to 8 receivers,
-    // It only defines 7 receive frequency control register addresses. So we are currently
-    // limited to 7 receivers implemented.
+        // Note:  While Ver 1.58 of the HPSDR USB protocol doucment specifies up to 8 receivers,
+        // It only defines 7 receive frequency control register addresses. So we are currently
+        // limited to 7 receivers implemented.
     case 18: // drive level & filt select (if Alex)
         if (PTTOffMutesTx & (PTTMode == PTTOff))
             outbuf[4] = 0; // (almost) kill Tx when PTTOff and PTTControlsTx
@@ -560,7 +674,7 @@ int PutTxIQ(const float complex *in0, int nsamples) {
     // TODO - the L/R audio data to Hermes is not implemented yet.
 
     // put 63 IQ samples into frame
-    for (int i = 0; i < nsamples; i++)  {
+    for (int i = 0; i < nsamples; i++) {
         // Zero out the audio Left and Right channel outputs.
         outbuf[i * 8 + 8] = 0;  // L1 MSB audio channel out
         outbuf[i * 8 + 9] = 0;  // L0 LSB
@@ -669,7 +783,7 @@ void SendTxIQ(void) {
 
         ++TxReadCounter;
         TxReadCounter &= (NUMTXBUFS - 1); // and free it
-     }
+    }
     return;
 }
 
@@ -716,7 +830,7 @@ void ReceiveRxIQ(unsigned char *inbuf) {
     //
     //    RxWriteCounter - the current Rx buffer we are writing to
     //    RxWriteFill    - #floats we have written to the current Rx buffer (0..255)
-    //    RxReadCounter  - the Rx buffer that gnuradio can read
+    //    RxReadCounter  - the Rx buffer
     //
 
     inbuf += 8;         // skip past Ethernet header
@@ -807,7 +921,7 @@ void ReceiveRxIQ(unsigned char *inbuf) {
             // int delta = inbuf - inbufptr;
             // fprintf(stderr, "USBFrameOffset: %i  inbufptr: %p  delta: %i \n", USBFrameOffset, inbufptr, delta);
             // PrintRawBuf(inbufptr);  // include Ethernet header
-            return; // error return
+            return;// error return
         }
 
     } // end for two USB frames
