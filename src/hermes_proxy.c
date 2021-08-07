@@ -72,7 +72,7 @@ unsigned Receive7Frequency;     // 8th rcvr
 
 unsigned TransmitFrequency;
 int NumReceivers;
-int RxSampleRate;
+int RxSampleRate = 48000;
 
 unsigned char TxDrive;
 unsigned char RxAtten;          // not yet used (requires Hermes firmware V2.0)
@@ -113,7 +113,7 @@ unsigned int USBRowCount[MAXRECEIVERS]; // Rows (samples per receiver) for one U
 //   evenly while fitting in the exact number of events.
 
 int schedulevector[20][27] = {
-//  Three receivers - 25 Tx queue events per set of 63, 126, 252, 504  received frames
+        //  Three receivers - 25 Tx queue events per set of 63, 126, 252, 504  received frames
         { 25, 0,  3,  5,  8, 10,  13,  15,  18,  20,  23,  25,  28,  30,  33,  35,  38,  40,  43,  45,  48,  50,  53,  55,  58,  60      }, // 25 frames per 63
         { 26, 1,  5, 10, 15, 20,  25,  30,  35,  40,  45,  50,  55,  59,  64,  69,  74,  79,  84,  89,  94,  98, 103, 108, 113, 118, 122 }, // 25 frames per 126
         { 26, 2, 10, 20, 30, 40,  50,  60,  70,  80,  90, 100, 110, 118, 128, 138, 148, 158, 168, 178, 188, 196, 206, 216, 226, 236, 244 }, // 25 frames per 252
@@ -567,9 +567,9 @@ void BuildControlRegs(unsigned RegNum, RawBuf_t outbuf) {
         outbuf[7] = ((unsigned char) (Receive6Frequency)) & 0xff;       // c4 RxFreq LSB
         break;
 
-        // Note:  While Ver 1.58 of the HPSDR USB protocol doucment specifies up to 8 receivers,
-        // It only defines 7 receive frequency control register addresses. So we are currently
-        // limited to 7 receivers implemented.
+    // Note:  While Ver 1.58 of the HPSDR USB protocol doucment specifies up to 8 receivers,
+    // It only defines 7 receive frequency control register addresses. So we are currently
+    // limited to 7 receivers implemented.
     case 18: // drive level & filt select (if Alex)
         if (PTTOffMutesTx & (PTTMode == PTTOff))
             outbuf[4] = 0; // (almost) kill Tx when PTTOff and PTTControlsTx
@@ -651,7 +651,6 @@ void BuildControlRegs(unsigned RegNum, RawBuf_t outbuf) {
 // which is disallowed by GNU Radio, so that code is commented out.
 // called by HermesNB to give us IQ data to send
 int PutTxIQ(const float complex *in0, int nsamples) {
-
     RawBuf_t outbuf;
     int A;
     int B;
@@ -735,8 +734,11 @@ RawBuf_t GetNextTxBuf(void) {
 // SendTxIQ() is called on a periodic basis to send Tx Ethernet frames to the
 // Hermes/Metis hardware.
 void SendTxIQ(void) {
-    if (TxStop) // Kill Tx frames if stopped
+    printf(".");
+    if (TxStop) { // Kill Tx frames if stopped
+        printf("TxStop\n");
         return;
+    }
 
     unsigned char ep = 0x2; // Tx data goes to end point 2
 
@@ -787,7 +789,6 @@ void SendTxIQ(void) {
     return;
 }
 
-// ********** Routines to receive data from Hermes/Metis ****************
 // called by metis Rx thread.
 void ReceiveRxIQ(unsigned char *inbuf) {
 
@@ -833,10 +834,7 @@ void ReceiveRxIQ(unsigned char *inbuf) {
     //    RxReadCounter  - the Rx buffer
     //
 
-    inbuf += 8;         // skip past Ethernet header
-
-    //IQBuf_t outbuf;     // RxWrite output buffer selector
-
+    inbuf += 8; // skip past Ethernet header
     TotalRxBufCount++;
 
     ScheduleTxFrame(TotalRxBufCount); // Schedule a Tx ethernet frame to Hermes if ready.
@@ -846,7 +844,6 @@ void ReceiveRxIQ(unsigned char *inbuf) {
 
     // check for proper frame sync
     for (int USBFrameOffset = 0; USBFrameOffset <= 512; USBFrameOffset += 512) {
-
         unsigned char s0 = inbuf[0 + USBFrameOffset]; // sync register 0
         unsigned char s1 = inbuf[1 + USBFrameOffset]; // sync register 0
         unsigned char s2 = inbuf[2 + USBFrameOffset]; // sync register 0
@@ -921,8 +918,42 @@ void ReceiveRxIQ(unsigned char *inbuf) {
             // int delta = inbuf - inbufptr;
             // fprintf(stderr, "USBFrameOffset: %i  inbufptr: %p  delta: %i \n", USBFrameOffset, inbufptr, delta);
             // PrintRawBuf(inbufptr);  // include Ethernet header
-            return;// error return
+            return; // error return
         }
 
     } // end for two USB frames
 }
+
+// stop ethernet I/O
+void Stop(void) {
+    metis_receive_stream_control(RxStream_Off, metis_entry); // stop Hermes Rx data stream
+    TxStop = true; // stop Tx data to Hermes
+}
+
+// start rx stream
+void Start(void) {
+    TxStop = false; // allow Tx data to Hermes
+    metis_receive_stream_control(RxStream_NB_On, metis_entry); // start Hermes Rx data stream
+    TxHoldOff = true; // Hold off buffers before bursting Tx
+}
+
+// for debugging
+void PrintRawBuf(RawBuf_t inbuf) {
+
+    fprintf(stderr, "Addr: %p    Dump of Raw Buffer\n", inbuf);
+    for (int row = 0; row < 4; row++) {
+        int addr = row * 16;
+        fprintf(stderr, "%04X:  ", addr);
+        for (int column = 0; column < 8; column++)
+            fprintf(stderr, "%02X:", inbuf[row * 16 + column]);
+        fprintf(stderr, "...");
+        for (int column = 8; column < 16; column++)
+            fprintf(stderr, "%02X:", inbuf[row * 16 + column]);
+        fprintf(stderr, "\n");
+    }
+
+    fprintf(stderr, "\n");
+
+}
+;
+

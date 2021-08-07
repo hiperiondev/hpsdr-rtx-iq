@@ -52,6 +52,9 @@ typedef unsigned char *RawBuf_t; // Raw transmit buffer type
 RawBuf_t GetNextTxBuf(void);
     void SendTxIQ(void);
     void ReceiveRxIQ(unsigned char *inbuf);
+    void Stop(void);
+    void Start(void);
+    void PrintRawBuf(RawBuf_t inbuf);
 
 #endif
 

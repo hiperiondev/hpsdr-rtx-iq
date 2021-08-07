@@ -28,11 +28,18 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <complex.h>
 #include <arpa/inet.h>
 
 #include "hermes_proxy.h"
 #include "metis.h"
 
+#define IQBURST 4000
+
+FILE *FileInHandle = NULL;
+float IQBuffer[IQBURST * 2];
+int nbread, i;
+float complex in0[IQBURST];
 
 int main(int argc, char **argv) {
     if (argc == 2) {
@@ -48,9 +55,20 @@ int main(int argc, char **argv) {
     sleep(5);
     printf("found metis: %s %s\n", metis_ip_address(1), metis_mac_address(1));
 
-    HermesProxy_init(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, "enp3s0", "enp3s0", 0, 0, 0, 0, 0, 0, "AA:BB:CC:DD:EE:FF");
+    HermesProxy_init(0, 0, 0, 0, 0, 0, 0, 0, 147360000, 0, 0, 0, 0, 0, 48000, "enp3s0", "", 0, 0, 0, 0, 0, 2, "AA:BB:CC:DD:EE:FF");
 
-    sleep(600);
-
+    printf("Start read stdin\n");
+    Start();
+    while (1) {
+        nbread = fread(IQBuffer, sizeof(float), IQBURST * 2, stdin);
+        if (nbread > 0) {
+            for (i = 0; i < nbread / 2; i++) {
+                in0[i] = IQBuffer[i * 2], IQBuffer[i * 2 + 1] * I;
+            }
+            PutTxIQ(in0, nbread / 2);
+            ScheduleTxFrame(1);
+        }
+    }
+    Stop();
     return 0;
 }

@@ -293,7 +293,6 @@ int metis_write(unsigned char ep, unsigned char *buffer, int length) {
     int i;
 
     if (offset == 8) {
-
         send_sequence++;
         output_buffer[0] = 0xEF;
         output_buffer[1] = 0xFE;
