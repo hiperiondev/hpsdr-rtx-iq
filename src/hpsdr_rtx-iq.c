@@ -35,7 +35,6 @@
 
 
 int main(int argc, char **argv) {
-    int n;
     if (argc == 2) {
         if (!strcmp(argv[1], "-h") || !strcmp(argv[1], "--help")) {
             printf("hpsdr_enum\n"
@@ -48,8 +47,8 @@ int main(int argc, char **argv) {
     metis_discover(argv[1]);
 
     sleep(5);
-    for (n = 0; n <= metis_found(); n++)
-        printf("found metis(%d): %s %s\n", n, metis_ip_address(n), metis_mac_address(n));
+
+    printf("found metis: %s %s\n", metis_ip_address(1), metis_mac_address(1));
 
     return 0;
 }

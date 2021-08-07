@@ -41,6 +41,7 @@
 #include <pthread.h>
 #include <string.h>
 #include <errno.h>
+#include <netpacket/packet.h>
 
 #include "hermes_proxy.h"
 #include "metis.h"
@@ -86,15 +87,10 @@ static int get_addr(int sock, const char *ifname) {
     struct ifreq *ifr;
     struct ifreq ifrr;
     struct sockaddr_in sa;
+    struct ifaddrs *ifaddr = NULL;
+    struct ifaddrs *ifa = NULL;
 
-    //unsigned char      *u;
     int i;
-
-    struct ifaddrs *addrs, *addr_ptr;
-    //bool found = false;
-
-// new code to get all interface names on this host
-
     struct ifconf ifc;
     char buf[8192];
     struct ifreq *ifquery;
@@ -118,8 +114,6 @@ static int get_addr(int sock, const char *ifname) {
 
     fprintf(stderr, "\n");
 
-// end new code
-
     ifr = &ifrr;
     ifrr.ifr_addr.sa_family = AF_INET;
     strncpy(ifrr.ifr_name, ifname, sizeof(ifrr.ifr_name));
@@ -131,23 +125,27 @@ static int get_addr(int sock, const char *ifname) {
 
     ip_address = inaddrr(ifr_addr.sa_data).s_addr;
 
-    // get address from all interfaces and filter by interface name
-    // this make the code available on Linux, *BSD and macOS
-    if (getifaddrs(&addrs) == 0) {
-        for (addr_ptr = addrs; addr_ptr != NULL; addr_ptr = addr_ptr->ifa_next) {
-            if (!strcmp(addr_ptr->ifa_name, ifname) && (addr_ptr->ifa_addr->sa_family == AF_INET || addr_ptr->ifa_addr->sa_family == AF_LOCAL)) {
-                if ((addr_ptr->ifa_flags & IFF_UP) == IFF_UP && (addr_ptr->ifa_flags & IFF_RUNNING) == IFF_RUNNING) {
-                    for (i = 0; i < 6; i++)
-                        hw_address[i] = (unsigned char) (addr_ptr->ifa_addr->sa_data[i]);
+    if (getifaddrs(&ifaddr) == -1) {
+        perror("getifaddrs");
+    } else {
+        for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
+            if ((ifa->ifa_addr) && (ifa->ifa_addr->sa_family == AF_PACKET)) {
+                struct sockaddr_ll *s = (struct sockaddr_ll*) ifa->ifa_addr;
+                printf("%-8s ", ifa->ifa_name);
+
+                if (!strcmp(ifa->ifa_name, ifname))
+                    found = true;
+
+                for (i = 0; i < s->sll_halen; i++) {
+                    printf("%02x%c", (s->sll_addr[i]), (i + 1 != s->sll_halen) ? ':' : '\n');
+                    if (!strcmp(ifa->ifa_name, ifname)) {
+                        hw_address[i] = (s->sll_addr[i]);
+
+                    }
                 }
-                found = true;
-                break;
             }
         }
-        freeifaddrs(addrs);
-    } else {
-        printf("getifaddrs() error.\n");
-        return -1;
+        freeifaddrs(ifaddr);
     }
 
     if (!found) {
