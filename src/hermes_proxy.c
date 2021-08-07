@@ -1,6 +1,6 @@
 /*
  * Copyright 2021 Emiliano Gonzalez LU3VEA (lu3vea @ gmail . com))
- * * Project Site: https://github.com/hiperiondev/hpsdr-rpitx *
+ * * Project Site: https://github.com/hiperiondev/hpsdr-rtx-iq *
  *
  * This is based on other projects:
  *    https://github.com/Tom-McDermott/gr-hpsdr/
@@ -315,8 +315,8 @@ void UpdateHermes(void) {
     for (int i = 0; i < 512; i++)
         buffer[i] = 0;
 
-    int length = 512; // metis_write ignores this value
-    unsigned char ep = 0x02; // all Hermes data is sent to end point 2
+    int length = 512;          // metis_write ignores this value
+    unsigned char ep = 0x02;   // all Hermes data is sent to end point 2
 
     // metis_write needs to be called twice to make one ethernet write to the hardware
     // Set these registers before starting the receive stream
@@ -530,9 +530,9 @@ void BuildControlRegs(unsigned RegNum, RawBuf_t outbuf) {
 
 }
 
-// hermesNB calls this routine to give IQ data from the block input connector to the proxy.
+// hermes calls this routine to give IQ data from the block input connector to the proxy.
 // Packs transformed data into one HPSDR USB buffer with control registers.
-// HermesNB gives us 63 complex samples from in0, we fill one USB buffer with them.
+// Hermes gives us 63 complex samples from in0, we fill one USB buffer with them.
 // Audio output could come from in1 but that forms a flowgraph loop in most useful cases
 // which is disallowed by GNU Radio, so that code is commented out.
 // called by HermesNB to give us IQ data to send
@@ -550,7 +550,6 @@ int PutTxIQ(const float complex *in0, int nsamples) {
         return 0; // Tell hermeNB we didn't consume any input
 
     // format a HPSDR USB frame to send to Hermes.
-
     TxControlCycler += 2;       // advance to next register bank, modulo
     if (TxControlCycler > 0x14) // 11 register banks (0..10). Note: Bank 10
         TxControlCycler = 0;    // (Hermes attenuator) requires firmware V2.0
@@ -808,8 +807,8 @@ void ReceiveRxIQ(unsigned char *inbuf) {
             // int delta = inbuf - inbufptr;
             // fprintf(stderr, "USBFrameOffset: %i  inbufptr: %p  delta: %i \n", USBFrameOffset, inbufptr, delta);
             // PrintRawBuf(inbufptr);  // include Ethernet header
-            return;// error return
+            return; // error return
         }
 
-    }   // end for two USB frames
+    } // end for two USB frames
 }

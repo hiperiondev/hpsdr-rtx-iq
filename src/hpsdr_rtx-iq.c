@@ -1,6 +1,6 @@
 /*
  * Copyright 2021 Emiliano Gonzalez LU3VEA (lu3vea @ gmail . com))
- * * Project Site: https://github.com/hiperiondev/hpsdr-rpitx *
+ * * Project Site: https://github.com/hiperiondev/hpsdr-rtx-iq *
  *
  * This is based on other projects:
  *    https://github.com/Tom-McDermott/gr-hpsdr/
@@ -45,9 +45,7 @@ int main(int argc, char **argv) {
     }
 
     metis_discover(argv[1]);
-
     sleep(5);
-
     printf("found metis: %s %s\n", metis_ip_address(1), metis_mac_address(1));
 
     return 0;

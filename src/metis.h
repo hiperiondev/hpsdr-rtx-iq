@@ -1,6 +1,6 @@
 /*
  * Copyright 2021 Emiliano Gonzalez LU3VEA (lu3vea @ gmail . com))
- * * Project Site: https://github.com/hiperiondev/hpsdr-rpitx *
+ * * Project Site: https://github.com/hiperiondev/hpsdr-rtx-iq *
  *
  * This is based on other projects:
  *    https://github.com/Tom-McDermott/gr-hpsdr/

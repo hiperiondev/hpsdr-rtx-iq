@@ -1,6 +1,6 @@
 /*
  * Copyright 2021 Emiliano Gonzalez LU3VEA (lu3vea @ gmail . com))
- * * Project Site: https://github.com/hiperiondev/hpsdr-rpitx *
+ * * Project Site: https://github.com/hiperiondev/hpsdr-rtx-iq *
  *
  * This is based on other projects:
  *    https://github.com/Tom-McDermott/gr-hpsdr/
@@ -51,7 +51,6 @@ METIS_CARD metis_cards[MAX_METIS_CARDS];
 
 #define DISCOVER_IDLE 0
 #define DISCOVER_SENT 1
-//static int discover_state=DISCOVER_IDLE;
 
 #define PORT 1024
 #define DISCOVERY_SEND_PORT PORT
@@ -67,7 +66,6 @@ static int discovering;
 static unsigned char hw_address[6];
 static long ip_address;
 
-//static int data_socket;	// never used
 static struct sockaddr_in data_addr;
 static int data_addr_length;
 
@@ -76,6 +74,9 @@ static unsigned char buffer[70];
 
 static pthread_t receive_thread_id;
 static int found = 0;
+
+static unsigned char output_buffer[1032];
+static int offset = 8;
 
 int ep;
 long sequence = -1;
@@ -288,8 +289,6 @@ void metis_receive_stream_control(unsigned char streamControl, unsigned int entr
         send_sequence = -1;	// reset HPSDR Tx Ethernet sequence number on stream stop
 }
 
-static unsigned char output_buffer[1032];
-static int offset = 8;
 int metis_write(unsigned char ep, unsigned char *buffer, int length) {
     int i;
 
