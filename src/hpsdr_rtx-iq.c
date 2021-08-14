@@ -34,7 +34,7 @@
 #include "hermes_proxy.h"
 #include "metis.h"
 
-#define IQBURST 4000
+#define IQBURST 63
 
 FILE *FileInHandle = NULL;
 float IQBuffer[IQBURST * 2];
@@ -55,7 +55,32 @@ int main(int argc, char **argv) {
     sleep(5);
     printf("found metis: %s %s\n", metis_ip_address(1), metis_mac_address(1));
 
-    HermesProxy_init(0, 0, 0, 0, 0, 0, 0, 0, 147360000, 0, 0, 0, 0, 0, 48000, "enp3s0", "", 0, 0, 0, 0, 0, 2, "AA:BB:CC:DD:EE:FF");
+    HermesProxy_init(
+            0,                  // RxFreq0
+            0,                  // RxFreq1
+            0,                  // RxFreq2
+            0,                  // RxFreq3
+            0,                  // RxFreq4
+            0,                  // RxFreq5
+            0,                  // RxFreq6
+            0,                  // RxFreq7
+            147360000,          // TxFreq
+            0,                  // RxPre
+            0,                  // PTTModeSel
+            0,                  // PTTTxMute
+            0,                  // PTTRxMute
+            0,                  // TxDr
+            48000,              // RxSmp
+            argv[1],            // Intfc
+            "",                 // ClkS
+            0,                  // AlexRA
+            0,                  // AlexTA
+            0,                  // AlexHPF
+            0,                  // AlexLPF
+            0,                  // Verb
+            8,                  // NumRx
+            "AA:BB:CC:DD:EE:FF" // MACAddr
+            );
 
     printf("Start read stdin\n");
     Start();
@@ -66,7 +91,7 @@ int main(int argc, char **argv) {
                 in0[i] = IQBuffer[i * 2], IQBuffer[i * 2 + 1] * I;
             }
             PutTxIQ(in0, nbread / 2);
-            ScheduleTxFrame(1);
+            ScheduleTxFrame(63);
         }
     }
     Stop();
